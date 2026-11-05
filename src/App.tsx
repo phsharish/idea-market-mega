@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import './App.css'
 import { supabase } from './supabase'
@@ -406,38 +405,42 @@ function App() {
     setRequestStatus('')
   }
 
+  // Corrected request submission: use a separate insert for each table.
   async function submitRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!userId || !requestIdea) return
 
     setBusy(true)
     setRequestStatus('')
-    const table = requestType === 'collaboration'
-      ? 'collaboration_requests'
-      : 'sponsorship_requests'
 
-    const payload = requestType === 'collaboration'
-      ? {
-          idea_id: requestIdea.id,
-          requester_id: userId,
-          owner_id: requestIdea.author_id,
-          message: requestText.trim() || 'I would like to collaborate!',
-        }
-      : {
-          idea_id: requestIdea.id,
-          sponsor_id: userId,
-          owner_id: requestIdea.author_id,
-          message: requestText.trim() || 'I am interested in sponsoring this idea.',
-        }
+    let error
 
-    const { error } = await supabase.from(table).insert(payload)
+    if (requestType === 'collaboration') {
+      const result = await supabase.from('collaboration_requests').insert({
+        idea_id: requestIdea.id,
+        requester_id: userId,
+        owner_id: requestIdea.author_id,
+        message: requestText.trim() || 'I would like to collaborate!',
+      })
+      error = result.error
+    } else {
+      const result = await supabase.from('sponsorship_requests').insert({
+        idea_id: requestIdea.id,
+        sponsor_id: userId,
+        owner_id: requestIdea.author_id,
+        message: requestText.trim() || 'I am interested in sponsoring this idea.',
+      })
+      error = result.error
+    }
 
-    if (error) setRequestStatus(error.message)
-    else {
+    if (error) {
+      setRequestStatus(error.message)
+    } else {
       setRequestStatus('Request sent successfully!')
       await loadRequests()
       setRequestIdea(null)
     }
+
     setBusy(false)
   }
 
